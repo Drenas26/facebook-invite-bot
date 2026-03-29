@@ -51,6 +51,14 @@ class GmailnatorClient:
         Поиск приглашения от Facebook в почтовом ящике
         Делает attempts попыток с интервалом interval секунд
         """
+        # Список возможных отправителей от Facebook
+        facebook_senders = [
+            'facebookmail.com',
+            'business.facebook.com', 
+            'noreply@business.facebook.com',
+            'notification@facebookmail.com'
+        ]
+        
         for attempt in range(1, attempts + 1):
             print(f"[Попытка {attempt}/{attempts}] Проверяю почту {email}...")
             messages = self.get_inbox(email)
@@ -58,12 +66,16 @@ class GmailnatorClient:
             for message in messages:
                 sender = message.get('from', '').lower()
                 
-                if 'facebookmail.com' in sender:
+                # Проверяем, что письмо от Facebook (любой из возможных отправителей)
+                is_facebook = any(fb_sender in sender for fb_sender in facebook_senders)
+                
+                if is_facebook:
                     message_id = message.get('id')
                     if not message_id:
                         continue
                     
-                    print(f"📧 Найдено письмо от Facebook! ID: {message_id}")
+                    print(f"📧 Найдено письмо от Facebook! Отправитель: {sender}")
+                    print(f"   ID: {message_id}")
                     
                     message_data = self.get_message_content(message_id)
                     if message_data:
