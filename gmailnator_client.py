@@ -46,43 +46,40 @@ class GmailnatorClient:
             print(f"Ошибка получения содержимого письма: {e}")
             return None
     
-    def find_facebook_invite(self, email: str, timeout: int = 300, check_interval: int = 10) -> Optional[str]:
-        """Поиск приглашения от Facebook в почтовом ящике"""
-        start_time = time.time()
-        attempt = 0
-        
-        while time.time() - start_time < timeout:
-            attempt += 1
-            print(f"[{attempt}] Проверяю почту {email}...")
+    def find_facebook_invite(self, email: str, attempts: int = 3, interval: int = 7) -> Optional[str]:
+        """
+        Поиск приглашения от Facebook в почтовом ящике
+        Делает attempts попыток с интервалом interval секунд
+        """
+        for attempt in range(1, attempts + 1):
+            print(f"[Попытка {attempt}/{attempts}] Проверяю почту {email}...")
             messages = self.get_inbox(email)
             
             for message in messages:
                 sender = message.get('from', '').lower()
-                subject = message.get('subject', '')
                 
                 if 'facebookmail.com' in sender:
                     message_id = message.get('id')
                     if not message_id:
                         continue
                     
-                    print(f"📧 Найдено письмо от Facebook!")
-                    print(f"   От: {sender}")
-                    print(f"   Тема: {subject}")
+                    print(f"📧 Найдено письмо от Facebook! ID: {message_id}")
                     
                     message_data = self.get_message_content(message_id)
                     if message_data:
                         content = message_data.get('content', '')
                         invite_link = self._extract_invite_link(content)
                         if invite_link:
-                            print(f"✅ Ссылка найдена: {invite_link[:80]}...")
+                            print(f"✅ Ссылка найдена на попытке {attempt}")
                             return invite_link
                         else:
                             print("⚠️ Ссылка не найдена в содержимом")
             
-            print(f"⏳ Писем от Facebook нет. Следующая проверка через {check_interval} сек...")
-            time.sleep(check_interval)
+            if attempt < attempts:
+                print(f"⏳ Писем от Facebook нет. Следующая проверка через {interval} сек...")
+                time.sleep(interval)
         
-        print(f"❌ Время ожидания истекло ({timeout} сек)")
+        print(f"❌ Письмо не обнаружено после {attempts} попыток")
         return None
     
     def _extract_invite_link(self, content: str) -> Optional[str]:
@@ -90,12 +87,9 @@ class GmailnatorClient:
         if not content:
             return None
         
-        # Паттерны для поиска ссылок
         patterns = [
             r'https://business\.facebook\.com/invitation/\?token=[A-Za-z0-9_-]+',
             r'https://business\.facebook\.com/security/invite/\?token=[A-Za-z0-9_-]+',
-            r'https://(?:www\.)?facebook\.com/business/invitation/\?token=[A-Za-z0-9_-]+',
-            r'https://fb\.me/[A-Za-z0-9]+',
         ]
         
         for pattern in patterns:
@@ -103,9 +97,8 @@ class GmailnatorClient:
             if matches:
                 return matches[0]
         
-        # Ищем ссылку внутри href атрибутов
-        href_pattern = r'href=["\'](https://business\.facebook\.com/invitation/\?token=[A-Za-z0-9_-]+)["\']'
-        matches = re.findall(href_pattern, content, re.IGNORECASE)
+        token_pattern = r'https?://[^\s"\']+/invitation/\?token=[A-Za-z0-9_-]+'
+        matches = re.findall(token_pattern, content, re.IGNORECASE)
         if matches:
             return matches[0]
         

@@ -4,7 +4,7 @@ from typing import Optional
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from gmailnator_client import GmailnatorClient
-from config import TELEGRAM_TOKEN, MAX_WAIT_TIME, CHECK_INTERVAL
+from config import TELEGRAM_TOKEN, CHECK_ATTEMPTS, CHECK_INTERVAL
 
 logging.basicConfig(
     level=logging.INFO,
@@ -21,6 +21,7 @@ class FacebookInviteBot:
         self.MAX_EMAILS = 10
     
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        total_time = CHECK_ATTEMPTS * CHECK_INTERVAL
         await update.message.reply_text(
             "🤖 *Facebook Business Manager Invite Bot*\n\n"
             "Я ищу приглашения в Facebook Business Manager.\n\n"
@@ -28,8 +29,8 @@ class FacebookInviteBot:
             "Просто отправьте email-адреса каждый с новой строки:\n\n"
             "```\nemail1@gmail.com\nemail2@gmail.com\n```\n\n"
             f"📌 *Максимум:* {self.MAX_EMAILS} email за раз\n"
-            f"⏱ *Время ожидания:* {MAX_WAIT_TIME // 60} минут на каждый\n"
-            f"🔄 *Проверка:* каждые {CHECK_INTERVAL} секунд\n\n"
+            f"⏱ *Проверка:* {CHECK_ATTEMPTS} попытки с интервалом {CHECK_INTERVAL} сек\n"
+            f"🔄 *Общее время:* {total_time} секунд\n\n"
             "*Команды:*\n"
             "/start - начать работу\n"
             "/help - справка\n\n"
@@ -97,22 +98,22 @@ class FacebookInviteBot:
         await asyncio.gather(*tasks, return_exceptions=True)
     
     async def process_single_email(self, update: Update, email: str) -> Optional[str]:
-        """Обработка одного email в отдельной задаче со своим сообщением"""
+        """Обработка одного email с тремя проверками по 7 секунд"""
         # Отправляем отдельное сообщение для этого email
         status_msg = await update.message.reply_text(
             f"📧 `{email}`\n"
             f"🔄 *Статус:* Поиск письма от Facebook...\n"
-            f"⏳ Время ожидания: {MAX_WAIT_TIME // 60} мин",
+            f"⏳ Будет выполнено {CHECK_ATTEMPTS} проверки с интервалом {CHECK_INTERVAL} сек",
             parse_mode='Markdown'
         )
         
         try:
-            # Запускаем поиск в отдельном потоке
+            # Запускаем поиск в отдельном потоке с новыми параметрами
             invite_link = await asyncio.to_thread(
                 self.client.find_facebook_invite,
                 email=email,
-                timeout=MAX_WAIT_TIME,
-                check_interval=CHECK_INTERVAL
+                attempts=CHECK_ATTEMPTS,
+                interval=CHECK_INTERVAL
             )
             
             if invite_link:
@@ -126,9 +127,9 @@ class FacebookInviteBot:
                 return invite_link
             else:
                 await status_msg.edit_text(
-                    f"⏱️ *Не найдено*\n\n"
+                    f"❌ *Письмо не обнаружено*\n\n"
                     f"📧 `{email}`\n\n"
-                    f"Письмо от Facebook не обнаружено за {MAX_WAIT_TIME // 60} минут.",
+                    f"Отправь приглашение еще раз или используй другую почту.",
                     parse_mode='Markdown'
                 )
                 return None
@@ -145,6 +146,7 @@ class FacebookInviteBot:
     
     async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Команда /help - справка"""
+        total_time = CHECK_ATTEMPTS * CHECK_INTERVAL
         await update.message.reply_text(
             "📚 *Инструкция*\n\n"
             "*Как отправить email:*\n"
@@ -154,11 +156,11 @@ class FacebookInviteBot:
             "```\nemail1@gmail.com\nemail2@gmail.com\n```\n\n"
             f"*Ограничения:*\n"
             f"• Максимум {self.MAX_EMAILS} email за раз\n"
-            f"• Время ожидания: {MAX_WAIT_TIME // 60} мин на каждый\n"
-            f"• Проверка: каждые {CHECK_INTERVAL} сек\n\n"
+            f"• {CHECK_ATTEMPTS} проверки с интервалом {CHECK_INTERVAL} сек\n"
+            f"• Общее время ожидания: {total_time} сек\n\n"
             "*Как копировать:*\n"
-            "• Нажмите и удерживайте на email → скопируется в буфер обмена\n"
-            "• Нажмите и удерживайте на ссылке → скопируется в буфер обмена\n\n"
+            "• Нажмите и удерживайте на email → скопируется в буфер\n"
+            "• Нажмите и удерживайте на ссылке → скопируется в буфер\n\n"
             "*Команды:*\n"
             "/start - начать работу\n"
             "/help - показать справку",
@@ -173,6 +175,7 @@ def main():
     
     print("🤖 Запуск бота...")
     print(f"Токен: {TELEGRAM_TOKEN[:15]}...")
+    print(f"⚙️ Настройки: {CHECK_ATTEMPTS} попытки, интервал {CHECK_INTERVAL} сек")
     
     bot = FacebookInviteBot()
     app = Application.builder().token(TELEGRAM_TOKEN).build()
@@ -186,7 +189,7 @@ def main():
     
     print("✅ Бот запущен и готов к работе!")
     print(f"📌 Поддерживается до {bot.MAX_EMAILS} email за раз")
-    print("📋 Email и ссылки копируются при удерживании")
+    print(f"⏱ Проверка: {CHECK_ATTEMPTS} попытки, каждые {CHECK_INTERVAL} сек")
     app.run_polling()
 
 if __name__ == "__main__":
