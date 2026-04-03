@@ -43,9 +43,12 @@ class FirstmailClient(BaseEmailClient):
             
             if response.status_code == 200:
                 data = response.json()
+                print(f"📦 success: {data.get('success')}")
                 
                 if data.get('success') and data.get('data', {}).get('messages'):
-                    return data['data']['messages']
+                    messages = data['data']['messages']
+                    print(f"📬 Найдено писем: {len(messages)}")
+                    return messages
                 else:
                     print(f"❌ Нет сообщений в ответе")
                     return []
@@ -67,7 +70,7 @@ class FirstmailClient(BaseEmailClient):
     def find_facebook_invite(self, email: str, password: str = None, attempts: int = 2, interval_first: int = 7, interval_second: int = 8) -> Optional[str]:
         """
         Поиск приглашения от Facebook в почтовом ящике firstmail
-        Делает 2 попытки: через interval_first и interval_first+interval_second секунд
+        Делает attempts попыток с интервалами
         """
         if not password:
             print("❌ Ошибка: для firstmail требуется пароль")
@@ -80,6 +83,7 @@ class FirstmailClient(BaseEmailClient):
             'notification@facebookmail.com'
         ]
         
+        # Массив интервалов: первый интервал, второй интервал
         intervals = [interval_first, interval_second]
         
         for attempt in range(1, attempts + 1):
@@ -96,7 +100,12 @@ class FirstmailClient(BaseEmailClient):
                     subject = message.get('subject', '')
                     print(f"   Письмо: {sender} - {subject[:50]}")
                     
-                    is_facebook = any(fb_sender in sender for fb_sender in facebook_senders)
+                    # Проверяем отправителя
+                    is_facebook = False
+                    for fb_sender in facebook_senders:
+                        if fb_sender in sender:
+                            is_facebook = True
+                            break
                     
                     if is_facebook:
                         print(f"📧 Найдено письмо от Facebook! Отправитель: {sender}")
@@ -113,7 +122,7 @@ class FirstmailClient(BaseEmailClient):
                             print("⚠️ Ссылка не найдена в содержимом")
             
             if attempt < attempts:
-                wait_time = intervals[attempt - 1]
+                wait_time = intervals[attempt - 1] if attempt - 1 < len(intervals) else interval_second
                 print(f"⏳ Следующая проверка через {wait_time} сек...")
                 time.sleep(wait_time)
         
