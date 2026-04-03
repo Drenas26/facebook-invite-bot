@@ -15,6 +15,6 @@ class BaseEmailClient(ABC):
         pass
     
     @abstractmethod
-    def find_facebook_invite(self, email: str, password: str = None, attempts: int = 3, interval: int = 7) -> Optional[str]:
+    def find_facebook_invite(self, email: str, password: str = None, attempts: int = 2, interval_first: int = 7, interval_second: int = 8) -> Optional[str]:
         """Поиск приглашения от Facebook"""
         pass

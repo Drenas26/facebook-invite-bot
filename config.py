@@ -9,9 +9,10 @@ TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 RAPIDAPI_KEY = os.getenv("RAPIDAPI_KEY")
 RAPIDAPI_HOST = os.getenv("RAPIDAPI_HOST")
 
-# Firstmail - используем новый ключ из теста
-FIRSTMAIL_API_KEY = os.getenv("FIRSTMAIL_API_KEY", "362w_8kKJr-nt3d_fAliR0JOyYCnCd82O_PGb5LeK0Jp_Fg14q0y42-aq6HoI-ky")
+# Firstmail
+FIRSTMAIL_API_KEY = os.getenv("FIRSTMAIL_API_KEY")
 
-# Настройки проверки
-CHECK_ATTEMPTS = 3
-CHECK_INTERVAL = 7
+# Настройки: 2 проверки
+CHECK_ATTEMPTS = 2
+CHECK_INTERVAL_FIRST = 7
+CHECK_INTERVAL_SECOND = 8

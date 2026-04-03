@@ -64,60 +64,61 @@ class FirstmailClient(BaseEmailClient):
         """Получение содержимого письма по ID (не используется для firstmail)"""
         return None
     
-    def find_facebook_invite(self, email: str, password: str = None, attempts: int = 3, interval: int = 7) -> Optional[str]:
-        """
-        Поиск приглашения от Facebook в почтовом ящике firstmail
-        """
-        if not password:
-            print("❌ Ошибка: для firstmail требуется пароль")
-            return None
-        
-        # Список возможных отправителей от Facebook
-        facebook_senders = [
-            'facebookmail.com',
-            'business.facebook.com', 
-            'noreply@business.facebook.com',
-            'notification@facebookmail.com'
-        ]
-        
-        for attempt in range(1, attempts + 1):
-            print(f"[Firstmail Попытка {attempt}/{attempts}] Проверяю почту {email}...")
-            messages = self.get_inbox(email, password)
-            
-            if not messages:
-                print(f"⚠️ Писем не найдено или ошибка получения")
-            else:
-                print(f"📬 Получено {len(messages)} писем")
-                
-                for message in messages:
-                    sender = message.get('from', '').lower()
-                    subject = message.get('subject', '')
-                    print(f"   Письмо: {sender} - {subject[:50]}")
-                    
-                    # Проверяем, что письмо от Facebook
-                    is_facebook = any(fb_sender in sender for fb_sender in facebook_senders)
-                    
-                    if is_facebook:
-                        print(f"📧 Найдено письмо от Facebook! Отправитель: {sender}")
-                        
-                        # Получаем содержимое
-                        body_html = message.get('body_html', '')
-                        body_text = message.get('body_text', '')
-                        content = body_html or body_text
-                        
-                        invite_link = self._extract_invite_link(content)
-                        if invite_link:
-                            print(f"✅ Ссылка найдена на попытке {attempt}")
-                            return invite_link
-                        else:
-                            print("⚠️ Ссылка не найдена в содержимом")
-            
-            if attempt < attempts:
-                print(f"⏳ Следующая проверка через {interval} сек...")
-                time.sleep(interval)
-        
-        print(f"❌ Письмо не обнаружено после {attempts} попыток")
+    def find_facebook_invite(self, email: str, password: str = None, attempts: int = 2, interval_first: int = 7, interval_second: int = 8) -> Optional[str]:
+    """
+    Поиск приглашения от Facebook в почтовом ящике firstmail
+    Делает 2 попытки: через 7 секунд и через 15 секунд
+    """
+    if not password:
+        print("❌ Ошибка: для firstmail требуется пароль")
         return None
+    
+    facebook_senders = [
+        'facebookmail.com',
+        'business.facebook.com', 
+        'noreply@business.facebook.com',
+        'notification@facebookmail.com'
+    ]
+    
+    intervals = [interval_first, interval_second]
+    
+    for attempt in range(1, attempts + 1):
+        print(f"[Firstmail Попытка {attempt}/{attempts}] Проверяю почту {email}...")
+        messages = self.get_inbox(email, password)
+        
+        if not messages:
+            print(f"⚠️ Писем не найдено или ошибка получения")
+        else:
+            print(f"📬 Получено {len(messages)} писем")
+            
+            for message in messages:
+                sender = message.get('from', '').lower()
+                subject = message.get('subject', '')
+                print(f"   Письмо: {sender} - {subject[:50]}")
+                
+                is_facebook = any(fb_sender in sender for fb_sender in facebook_senders)
+                
+                if is_facebook:
+                    print(f"📧 Найдено письмо от Facebook! Отправитель: {sender}")
+                    
+                    body_html = message.get('body_html', '')
+                    body_text = message.get('body_text', '')
+                    content = body_html or body_text
+                    
+                    invite_link = self._extract_invite_link(content)
+                    if invite_link:
+                        print(f"✅ Ссылка найдена на попытке {attempt}")
+                        return invite_link
+                    else:
+                        print("⚠️ Ссылка не найдена в содержимом")
+        
+        if attempt < attempts:
+            wait_time = intervals[attempt - 1]
+            print(f"⏳ Следующая проверка через {wait_time} сек...")
+            time.sleep(wait_time)
+    
+    print(f"❌ Письмо не обнаружено после {attempts} попыток")
+    return None
     
     def _extract_invite_link(self, content: str) -> Optional[str]:
         """Извлечение ссылки-приглашения из содержимого письма"""
