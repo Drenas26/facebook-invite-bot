@@ -79,29 +79,31 @@ class FacebookInviteBot:
             )
             return
         
-        # Отправляем сообщение о начале обработки
+        # Отправляем сообщение с нумерованным списком
+        numbered_list = "\n".join([f"{i+1}. `{email}`" for i, email in enumerate(valid_emails)])
         await update.message.reply_text(
             f"🚀 *Запускаю обработку {len(valid_emails)} email...*\n\n"
+            f"{numbered_list}\n\n"
             f"Ожидайте результаты в отдельных сообщениях ниже 👇",
             parse_mode='Markdown'
         )
         
-        # Запускаем параллельную обработку всех email
+        # Запускаем параллельную обработку всех email с сохранением индекса
         tasks = []
-        for email in valid_emails:
+        for i, email in enumerate(valid_emails):
             task = asyncio.create_task(
-                self.process_single_email(update, email)
+                self.process_single_email(update, email, i + 1)
             )
             tasks.append(task)
         
         # Ждем завершения всех задач
         await asyncio.gather(*tasks, return_exceptions=True)
     
-    async def process_single_email(self, update: Update, email: str) -> Optional[str]:
-        """Обработка одного email с тремя проверками по 7 секунд"""
+    async def process_single_email(self, update: Update, email: str, index: int) -> Optional[str]:
+        """Обработка одного email с индексом для сохранения порядка"""
         # Отправляем отдельное сообщение для этого email
         status_msg = await update.message.reply_text(
-            f"📧 `{email}`\n"
+            f"#{index} 📧 `{email}`\n"
             f"🔄 *Статус:* Поиск письма от Facebook...\n"
             f"⏳ Будет выполнено {CHECK_ATTEMPTS} проверки с интервалом {CHECK_INTERVAL} сек",
             parse_mode='Markdown'
@@ -118,7 +120,7 @@ class FacebookInviteBot:
             
             if invite_link:
                 await status_msg.edit_text(
-                    f"✅ *Успешно!*\n\n"
+                    f"#{index} ✅ *Успешно!*\n\n"
                     f"📧 `{email}`\n\n"
                     f"🔗 `{invite_link}`",
                     parse_mode='Markdown',
@@ -127,7 +129,7 @@ class FacebookInviteBot:
                 return invite_link
             else:
                 await status_msg.edit_text(
-                    f"❌ *Письмо не обнаружено*\n\n"
+                    f"#{index} ❌ *Письмо не обнаружено*\n\n"
                     f"📧 `{email}`\n\n"
                     f"Отправь приглашение еще раз или используй другую почту.",
                     parse_mode='Markdown'
@@ -137,7 +139,7 @@ class FacebookInviteBot:
         except Exception as e:
             logger.error(f"Ошибка при обработке {email}: {e}")
             await status_msg.edit_text(
-                f"❌ *Ошибка*\n\n"
+                f"#{index} ❌ *Ошибка*\n\n"
                 f"📧 `{email}`\n\n"
                 f"```\n{str(e)[:150]}\n```",
                 parse_mode='Markdown'
