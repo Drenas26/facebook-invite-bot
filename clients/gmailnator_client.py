@@ -2,18 +2,18 @@ import requests
 import time
 import re
 from typing import Optional, List, Dict
+from .base_client import BaseEmailClient
 
-class GmailnatorClient:
-    def __init__(self):
-        from config import RAPIDAPI_KEY, RAPIDAPI_HOST
+class GmailnatorClient(BaseEmailClient):
+    def __init__(self, api_key: str, api_host: str):
         self.base_url = "https://gmailnator.p.rapidapi.com"
         self.headers = {
-            "X-RapidAPI-Key": RAPIDAPI_KEY,
-            "X-RapidAPI-Host": RAPIDAPI_HOST,
+            "X-RapidAPI-Key": api_key,
+            "X-RapidAPI-Host": api_host,
             "Content-Type": "application/json"
         }
     
-    def get_inbox(self, email: str) -> List[Dict]:
+    def get_inbox(self, email: str, password: str = None) -> List[Dict]:
         """Получение списка входящих писем"""
         try:
             response = requests.post(
@@ -29,10 +29,10 @@ class GmailnatorClient:
                 return data.get('messages', [])
             return []
         except Exception as e:
-            print(f"Ошибка получения списка писем: {e}")
+            print(f"Ошибка получения списка писем Gmailnator: {e}")
             return []
     
-    def get_message_content(self, message_id: str) -> Optional[Dict]:
+    def get_message_content(self, message_id: str, email: str = None, password: str = None) -> Optional[Dict]:
         """Получение полного содержимого письма по ID"""
         try:
             response = requests.get(
@@ -46,12 +46,10 @@ class GmailnatorClient:
             print(f"Ошибка получения содержимого письма: {e}")
             return None
     
-    def find_facebook_invite(self, email: str, attempts: int = 3, interval: int = 7) -> Optional[str]:
+    def find_facebook_invite(self, email: str, password: str = None, attempts: int = 3, interval: int = 7) -> Optional[str]:
         """
         Поиск приглашения от Facebook в почтовом ящике
-        Делает attempts попыток с интервалом interval секунд
         """
-        # Список возможных отправителей от Facebook
         facebook_senders = [
             'facebookmail.com',
             'business.facebook.com', 
@@ -60,13 +58,12 @@ class GmailnatorClient:
         ]
         
         for attempt in range(1, attempts + 1):
-            print(f"[Попытка {attempt}/{attempts}] Проверяю почту {email}...")
+            print(f"[Gmailnator Попытка {attempt}/{attempts}] Проверяю почту {email}...")
             messages = self.get_inbox(email)
             
             for message in messages:
                 sender = message.get('from', '').lower()
                 
-                # Проверяем, что письмо от Facebook (любой из возможных отправителей)
                 is_facebook = any(fb_sender in sender for fb_sender in facebook_senders)
                 
                 if is_facebook:
@@ -75,7 +72,6 @@ class GmailnatorClient:
                         continue
                     
                     print(f"📧 Найдено письмо от Facebook! Отправитель: {sender}")
-                    print(f"   ID: {message_id}")
                     
                     message_data = self.get_message_content(message_id)
                     if message_data:
