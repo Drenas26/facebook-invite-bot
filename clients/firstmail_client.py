@@ -65,60 +65,60 @@ class FirstmailClient(BaseEmailClient):
         return None
     
     def find_facebook_invite(self, email: str, password: str = None, attempts: int = 2, interval_first: int = 7, interval_second: int = 8) -> Optional[str]:
-    """
-    Поиск приглашения от Facebook в почтовом ящике firstmail
-    Делает 2 попытки: через 7 секунд и через 15 секунд
-    """
-    if not password:
-        print("❌ Ошибка: для firstmail требуется пароль")
-        return None
-    
-    facebook_senders = [
-        'facebookmail.com',
-        'business.facebook.com', 
-        'noreply@business.facebook.com',
-        'notification@facebookmail.com'
-    ]
-    
-    intervals = [interval_first, interval_second]
-    
-    for attempt in range(1, attempts + 1):
-        print(f"[Firstmail Попытка {attempt}/{attempts}] Проверяю почту {email}...")
-        messages = self.get_inbox(email, password)
+        """
+        Поиск приглашения от Facebook в почтовом ящике firstmail
+        Делает 2 попытки: через interval_first и interval_first+interval_second секунд
+        """
+        if not password:
+            print("❌ Ошибка: для firstmail требуется пароль")
+            return None
         
-        if not messages:
-            print(f"⚠️ Писем не найдено или ошибка получения")
-        else:
-            print(f"📬 Получено {len(messages)} писем")
+        facebook_senders = [
+            'facebookmail.com',
+            'business.facebook.com',
+            'noreply@business.facebook.com',
+            'notification@facebookmail.com'
+        ]
+        
+        intervals = [interval_first, interval_second]
+        
+        for attempt in range(1, attempts + 1):
+            print(f"[Firstmail Попытка {attempt}/{attempts}] Проверяю почту {email}...")
+            messages = self.get_inbox(email, password)
             
-            for message in messages:
-                sender = message.get('from', '').lower()
-                subject = message.get('subject', '')
-                print(f"   Письмо: {sender} - {subject[:50]}")
+            if not messages:
+                print(f"⚠️ Писем не найдено или ошибка получения")
+            else:
+                print(f"📬 Получено {len(messages)} писем")
                 
-                is_facebook = any(fb_sender in sender for fb_sender in facebook_senders)
-                
-                if is_facebook:
-                    print(f"📧 Найдено письмо от Facebook! Отправитель: {sender}")
+                for message in messages:
+                    sender = message.get('from', '').lower()
+                    subject = message.get('subject', '')
+                    print(f"   Письмо: {sender} - {subject[:50]}")
                     
-                    body_html = message.get('body_html', '')
-                    body_text = message.get('body_text', '')
-                    content = body_html or body_text
+                    is_facebook = any(fb_sender in sender for fb_sender in facebook_senders)
                     
-                    invite_link = self._extract_invite_link(content)
-                    if invite_link:
-                        print(f"✅ Ссылка найдена на попытке {attempt}")
-                        return invite_link
-                    else:
-                        print("⚠️ Ссылка не найдена в содержимом")
+                    if is_facebook:
+                        print(f"📧 Найдено письмо от Facebook! Отправитель: {sender}")
+                        
+                        body_html = message.get('body_html', '')
+                        body_text = message.get('body_text', '')
+                        content = body_html or body_text
+                        
+                        invite_link = self._extract_invite_link(content)
+                        if invite_link:
+                            print(f"✅ Ссылка найдена на попытке {attempt}")
+                            return invite_link
+                        else:
+                            print("⚠️ Ссылка не найдена в содержимом")
+            
+            if attempt < attempts:
+                wait_time = intervals[attempt - 1]
+                print(f"⏳ Следующая проверка через {wait_time} сек...")
+                time.sleep(wait_time)
         
-        if attempt < attempts:
-            wait_time = intervals[attempt - 1]
-            print(f"⏳ Следующая проверка через {wait_time} сек...")
-            time.sleep(wait_time)
-    
-    print(f"❌ Письмо не обнаружено после {attempts} попыток")
-    return None
+        print(f"❌ Письмо не обнаружено после {attempts} попыток")
+        return None
     
     def _extract_invite_link(self, content: str) -> Optional[str]:
         """Извлечение ссылки-приглашения из содержимого письма"""

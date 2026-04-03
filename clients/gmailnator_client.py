@@ -47,52 +47,52 @@ class GmailnatorClient(BaseEmailClient):
             return None
     
     def find_facebook_invite(self, email: str, password: str = None, attempts: int = 2, interval_first: int = 7, interval_second: int = 8) -> Optional[str]:
-    """
-    Поиск приглашения от Facebook в почтовом ящике
-    Делает 2 попытки: через 7 секунд и через 15 секунд
-    """
-    facebook_senders = [
-        'facebookmail.com',
-        'business.facebook.com', 
-        'noreply@business.facebook.com',
-        'notification@facebookmail.com'
-    ]
-    
-    intervals = [interval_first, interval_second]
-    
-    for attempt in range(1, attempts + 1):
-        print(f"[Gmailnator Попытка {attempt}/{attempts}] Проверяю почту {email}...")
-        messages = self.get_inbox(email)
+        """
+        Поиск приглашения от Facebook в почтовом ящике
+        Делает 2 попытки: через interval_first и interval_first+interval_second секунд
+        """
+        facebook_senders = [
+            'facebookmail.com',
+            'business.facebook.com',
+            'noreply@business.facebook.com',
+            'notification@facebookmail.com'
+        ]
         
-        for message in messages:
-            sender = message.get('from', '').lower()
-            
-            is_facebook = any(fb_sender in sender for fb_sender in facebook_senders)
-            
-            if is_facebook:
-                message_id = message.get('id')
-                if not message_id:
-                    continue
-                
-                print(f"📧 Найдено письмо от Facebook! Отправитель: {sender}")
-                
-                message_data = self.get_message_content(message_id)
-                if message_data:
-                    content = message_data.get('content', '')
-                    invite_link = self._extract_invite_link(content)
-                    if invite_link:
-                        print(f"✅ Ссылка найдена на попытке {attempt}")
-                        return invite_link
-                    else:
-                        print("⚠️ Ссылка не найдена в содержимом")
+        intervals = [interval_first, interval_second]
         
-        if attempt < attempts:
-            wait_time = intervals[attempt - 1]
-            print(f"⏳ Писем от Facebook нет. Следующая проверка через {wait_time} сек...")
-            time.sleep(wait_time)
-    
-    print(f"❌ Письмо не обнаружено после {attempts} попыток")
-    return None
+        for attempt in range(1, attempts + 1):
+            print(f"[Gmailnator Попытка {attempt}/{attempts}] Проверяю почту {email}...")
+            messages = self.get_inbox(email)
+            
+            for message in messages:
+                sender = message.get('from', '').lower()
+                
+                is_facebook = any(fb_sender in sender for fb_sender in facebook_senders)
+                
+                if is_facebook:
+                    message_id = message.get('id')
+                    if not message_id:
+                        continue
+                    
+                    print(f"📧 Найдено письмо от Facebook! Отправитель: {sender}")
+                    
+                    message_data = self.get_message_content(message_id)
+                    if message_data:
+                        content = message_data.get('content', '')
+                        invite_link = self._extract_invite_link(content)
+                        if invite_link:
+                            print(f"✅ Ссылка найдена на попытке {attempt}")
+                            return invite_link
+                        else:
+                            print("⚠️ Ссылка не найдена в содержимом")
+            
+            if attempt < attempts:
+                wait_time = intervals[attempt - 1]
+                print(f"⏳ Писем от Facebook нет. Следующая проверка через {wait_time} сек...")
+                time.sleep(wait_time)
+        
+        print(f"❌ Письмо не обнаружено после {attempts} попыток")
+        return None
     
     def _extract_invite_link(self, content: str) -> Optional[str]:
         """Извлечение ссылки-приглашения из HTML-содержимого письма"""
