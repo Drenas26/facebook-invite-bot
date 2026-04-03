@@ -4,7 +4,7 @@ from typing import Optional
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 from clients import GmailnatorClient, FirstmailClient
-from config import TELEGRAM_TOKEN, RAPIDAPI_KEY, RAPIDAPI_HOST, FIRSTMAIL_API_KEY, CHECK_ATTEMPTS, CHECK_INTERVAL_FIRST, CHECK_INTERVAL_SECOND
+from config import TELEGRAM_TOKEN, RAPIDAPI_KEY, RAPIDAPI_HOST, FIRSTMAIL_API_KEY
 
 logging.basicConfig(
     level=logging.INFO,
@@ -60,9 +60,8 @@ class FacebookInviteBot:
             self.user_service[user_id] = "firstmail"
             await query.edit_message_text(
                 "✅ *Выбран сервис: Firstmail*\n\n"
-                "🔐 Для работы с Firstmail нужен пароль от почтового ящика.\n\n"
-                "Отправьте email и пароль в формате:\n"
-                "`email@firstmail.ru пароль`\n\n"
+                "🔐 Отправьте email и пароль в формате:\n"
+                "`email пароль`\n\n"
                 "Пример: `prewvckt@polosmail.com ibvjhkpdS!1901`\n\n"
                 f"📌 Максимум: {self.MAX_EMAILS} email за раз\n"
                 f"⏱ Проверка: 2 проверки (через 7 и 15 секунд)",
@@ -72,6 +71,9 @@ class FacebookInviteBot:
     async def handle_emails(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id = update.effective_user.id
         text = update.message.text.strip()
+        
+        print(f"🔍 handle_emails: user_id={user_id}, text={text}")
+        print(f"🔍 user_service={self.user_service.get(user_id)}")
         
         if user_id not in self.user_service:
             await update.message.reply_text(
@@ -88,6 +90,7 @@ class FacebookInviteBot:
             await self.handle_firstmail(update, text, user_id)
     
     async def handle_gmailnator(self, update: Update, text: str):
+        print("🔍 handle_gmailnator вызван")
         emails = [line.strip() for line in text.split('\n') if line.strip()]
         
         valid_emails = []
@@ -125,20 +128,25 @@ class FacebookInviteBot:
         await asyncio.gather(*tasks, return_exceptions=True)
     
     async def handle_firstmail(self, update: Update, text: str, user_id: int):
+        print(f"🔍 handle_firstmail вызван с текстом: {text}")
+        
         # Формат: email пароль (через пробел)
         parts = text.split()
+        print(f"🔍 parts: {parts}")
         
         if len(parts) < 2:
             await update.message.reply_text(
                 "❌ Для Firstmail укажите email и пароль в формате:\n"
-                "`email@firstmail.ru пароль`\n\n"
+                "`email пароль`\n\n"
                 "Пример: `prewvckt@polosmail.com ibvjhkpdS!1901`",
                 parse_mode='Markdown'
             )
             return
         
         email = parts[0]
-        password = ' '.join(parts[1:])  # на случай если в пароле есть пробелы
+        password = ' '.join(parts[1:])
+        
+        print(f"🔍 email: {email}, password: {password[:3]}...")
         
         if '@' not in email or not password:
             await update.message.reply_text("❌ Укажите корректный email и пароль")
@@ -160,6 +168,8 @@ class FacebookInviteBot:
         client = self.gmailnator if service == "gmailnator" else self.firstmail
         service_name = "Gmailnator" if service == "gmailnator" else "Firstmail"
         
+        print(f"🔍 process_single_email: service={service_name}, email={email}")
+        
         status_msg = await update.message.reply_text(
             f"#{index} 📧 `{email}` [{service_name}]\n"
             f"🔄 *Статус:* Поиск письма от Facebook...\n"
@@ -168,7 +178,6 @@ class FacebookInviteBot:
         )
         
         try:
-            # Используем новые параметры: 2 проверки
             invite_link = await asyncio.to_thread(
                 client.find_facebook_invite,
                 email=email,
